@@ -1,7 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {NativeModules, Pressable, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import {BlurView} from '@react-native-community/blur';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
 const FALLBACK_APPS = [
@@ -34,13 +32,7 @@ function iconFor(label) {
 }
 
 function Glass({children, style}) {
-  return (
-    <View style={[styles.glass, style]}>
-      <BlurView style={StyleSheet.absoluteFill} blurType="light" blurAmount={24} reducedTransparencyFallbackColor="rgba(255,255,255,.14)" />
-      <LinearGradient colors={['rgba(255,255,255,.26)','rgba(255,255,255,.07)']} style={StyleSheet.absoluteFill} />
-      {children}
-    </View>
-  );
+  return <View style={[styles.glass, style]}>{children}</View>;
 }
 
 export default function App() {
@@ -56,24 +48,28 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const loadApps = async () => {
       try {
+        if (!NativeModules.LauncherModule?.getInstalledApps) return;
         const nativeApps = await NativeModules.LauncherModule.getInstalledApps();
+        if (!mounted || !Array.isArray(nativeApps)) return;
         const filtered = nativeApps
           .filter(app => app.packageName !== 'com.beatrice.liquidglasslauncher')
           .slice(0, 16)
-          .map(app => ({...app, icon: iconFor(app.label)}));
+          .map(app => ({...app, icon: iconFor(app.label || '')}));
         if (filtered.length) setApps(filtered);
       } catch (_) {}
     };
     loadApps();
+    return () => { mounted = false; };
   }, []);
 
   const time = useMemo(() => now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), [now]);
   const date = useMemo(() => now.toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'}), [now]);
 
   const openApp = async app => {
-    if (app.packageName) {
+    if (app.packageName && NativeModules.LauncherModule?.launchApp) {
       try {
         await NativeModules.LauncherModule.launchApp(app.packageName);
         return;
@@ -110,4 +106,4 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({safe:{flex:1,backgroundColor:'#03040a'},screen:{flex:1,overflow:'hidden',backgroundColor:'#070915',paddingHorizontal:18},focus:{backgroundColor:'#020307'},status:{height:34,flexDirection:'row',justifyContent:'space-between',alignItems:'center',zIndex:5},statusText:{color:'#fff',fontWeight:'700',fontSize:12},orb:{position:'absolute',borderRadius:999,opacity:.55},orb1:{width:220,height:220,backgroundColor:'#6b5cff'},orb2:{width:280,height:280,backgroundColor:'#24d9ff'},orb3:{width:240,height:240,backgroundColor:'#ff4fc3'},glass:{overflow:'hidden',borderRadius:28,borderWidth:1,borderColor:'rgba(255,255,255,.24)',backgroundColor:'rgba(255,255,255,.09)',shadowColor:'#000',shadowOpacity:.35,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:10},hero:{minHeight:154,padding:22,marginTop:6,justifyContent:'space-between',flexDirection:'row',alignItems:'flex-end'},kicker:{color:'rgba(255,255,255,.7)',fontSize:14,fontWeight:'600'},bigTime:{color:'#fff',fontSize:46,fontWeight:'300',letterSpacing:-2,marginTop:4},location:{color:'rgba(255,255,255,.8)',fontSize:13},focusButton:{paddingHorizontal:14,paddingVertical:8,borderRadius:18,backgroundColor:'rgba(255,255,255,.16)',borderWidth:1,borderColor:'rgba(255,255,255,.22)'},focusText:{color:'#fff',fontWeight:'700'},grid:{flex:1,flexDirection:'row',flexWrap:'wrap',alignContent:'center',justifyContent:'space-between',paddingVertical:18},app:{width:'23%',alignItems:'center',marginVertical:8},icon:{width:58,height:58,borderRadius:17,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,255,255,.16)',borderWidth:1,borderColor:'rgba(255,255,255,.22)',shadowColor:'#000',shadowOpacity:.3,shadowRadius:10,elevation:5},emoji:{fontSize:28},appName:{color:'#fff',fontSize:11,marginTop:6,fontWeight:'600'},pressed:{transform:[{scale:.92}],opacity:.75},dock:{height:76,borderRadius:26,marginBottom:8,flexDirection:'row',alignItems:'center',justifyContent:'space-around',paddingHorizontal:8},dockIcon:{width:58,height:58,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,255,255,.15)'},toast:{position:'absolute',bottom:96,alignSelf:'center',paddingHorizontal:18,paddingVertical:12,borderRadius:18},toastText:{color:'#fff',fontWeight:'700'},home:{height:28,alignItems:'center',justifyContent:'center'},homeBar:{width:110,height:4,borderRadius:4,backgroundColor:'#fff',opacity:.8}}
+const styles = StyleSheet.create({safe:{flex:1,backgroundColor:'#03040a'},screen:{flex:1,overflow:'hidden',backgroundColor:'#070915',paddingHorizontal:18},focus:{backgroundColor:'#020307'},status:{height:34,flexDirection:'row',justifyContent:'space-between',alignItems:'center',zIndex:5},statusText:{color:'#fff',fontWeight:'700',fontSize:12},orb:{position:'absolute',borderRadius:999,opacity:.55},orb1:{width:220,height:220,backgroundColor:'#6b5cff'},orb2:{width:280,height:280,backgroundColor:'#24d9ff'},orb3:{width:240,height:240,backgroundColor:'#ff4fc3'},glass:{overflow:'hidden',borderRadius:28,borderWidth:1,borderColor:'rgba(255,255,255,.24)',backgroundColor:'rgba(255,255,255,.12)',shadowColor:'#000',shadowOpacity:.35,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:10},hero:{minHeight:154,padding:22,marginTop:6,justifyContent:'space-between',flexDirection:'row',alignItems:'flex-end'},kicker:{color:'rgba(255,255,255,.7)',fontSize:14,fontWeight:'600'},bigTime:{color:'#fff',fontSize:46,fontWeight:'300',letterSpacing:-2,marginTop:4},location:{color:'rgba(255,255,255,.8)',fontSize:13},focusButton:{paddingHorizontal:14,paddingVertical:8,borderRadius:18,backgroundColor:'rgba(255,255,255,.16)',borderWidth:1,borderColor:'rgba(255,255,255,.22)'},focusText:{color:'#fff',fontWeight:'700'},grid:{flex:1,flexDirection:'row',flexWrap:'wrap',alignContent:'center',justifyContent:'space-between',paddingVertical:18},app:{width:'23%',alignItems:'center',marginVertical:8},icon:{width:58,height:58,borderRadius:17,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,255,255,.16)',borderWidth:1,borderColor:'rgba(255,255,255,.22)',shadowColor:'#000',shadowOpacity:.3,shadowRadius:10,elevation:5},emoji:{fontSize:28},appName:{color:'#fff',fontSize:11,marginTop:6,fontWeight:'600'},pressed:{transform:[{scale:.92}],opacity:.75},dock:{height:76,borderRadius:26,marginBottom:8,flexDirection:'row',alignItems:'center',justifyContent:'space-around',paddingHorizontal:8},dockIcon:{width:58,height:58,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,255,255,.15)'},toast:{position:'absolute',bottom:96,alignSelf:'center',paddingHorizontal:18,paddingVertical:12,borderRadius:18},toastText:{color:'#fff',fontWeight:'700'},home:{height:28,alignItems:'center',justifyContent:'center'},homeBar:{width:110,height:4,borderRadius:4,backgroundColor:'#fff',opacity:.8}}
