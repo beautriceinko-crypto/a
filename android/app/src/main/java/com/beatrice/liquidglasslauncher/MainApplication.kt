@@ -12,7 +12,7 @@ class MainApplication : Application(), ReactApplication {
         getDefaultReactHost(
             context = applicationContext,
             packageList = PackageList(this).packages.apply {
-                // Native packages are autolinked by the React Native Gradle plugin.
+                add(LauncherPackage())
             },
         )
     }
