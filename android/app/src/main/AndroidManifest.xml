@@ -11,6 +11,8 @@
     <application
         android:name=".MainApplication"
         android:label="Liquid Glass Launcher"
+        android:icon="@drawable/liquid_glass_logo"
+        android:roundIcon="@drawable/liquid_glass_logo"
         android:allowBackup="false"
         android:theme="@style/AppTheme"
         android:supportsRtl="true">
