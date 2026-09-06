@@ -1,18 +1,46 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Pressable, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
+import {NativeModules, Pressable, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {BlurView} from '@react-native-community/blur';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
-const APPS = [
-  ['Weather','☀️'], ['Camera','📷'], ['Maps','🗺️'], ['Music','🎵'],
-  ['Messages','💬'], ['Phone','📞'], ['Browser','🧭'], ['Notes','📝'],
-  ['Calendar','📅'], ['Compass','🧭'], ['Store','🛍️'], ['Settings','⚙️'],
+const FALLBACK_APPS = [
+  {label:'Weather', packageName:'', icon:'☀️'}, {label:'Camera', packageName:'', icon:'📷'},
+  {label:'Maps', packageName:'', icon:'🗺️'}, {label:'Music', packageName:'', icon:'🎵'},
+  {label:'Messages', packageName:'', icon:'💬'}, {label:'Phone', packageName:'', icon:'📞'},
+  {label:'Browser', packageName:'', icon:'🧭'}, {label:'Notes', packageName:'', icon:'📝'},
+  {label:'Calendar', packageName:'', icon:'📅'}, {label:'Compass', packageName:'', icon:'🧭'},
+  {label:'Store', packageName:'', icon:'🛍️'}, {label:'Settings', packageName:'', icon:'⚙️'},
 ];
-const DOCK = [['Phone','📞'], ['Messages','💬'], ['Browser','🧭'], ['Music','🎵']];
+
+const DOCK = [
+  {label:'Phone', icon:'📞'}, {label:'Messages', icon:'💬'},
+  {label:'Browser', icon:'🧭'}, {label:'Music', icon:'🎵'},
+];
+
+function iconFor(label) {
+  const value = label.toLowerCase();
+  if (value.includes('camera')) return '📷';
+  if (value.includes('map')) return '🗺️';
+  if (value.includes('music') || value.includes('spotify')) return '🎵';
+  if (value.includes('message') || value.includes('chat')) return '💬';
+  if (value.includes('phone') || value.includes('dialer')) return '📞';
+  if (value.includes('browser') || value.includes('chrome') || value.includes('firefox')) return '🧭';
+  if (value.includes('setting')) return '⚙️';
+  if (value.includes('calendar')) return '📅';
+  if (value.includes('note')) return '📝';
+  if (value.includes('store') || value.includes('play')) return '🛍️';
+  return '✨';
+}
 
 function Glass({children, style}) {
-  return <View style={[styles.glass, style]}><BlurView style={StyleSheet.absoluteFill} blurType="light" blurAmount={24} reducedTransparencyFallbackColor="rgba(255,255,255,.14)" /><LinearGradient colors={['rgba(255,255,255,.26)','rgba(255,255,255,.07)']} style={StyleSheet.absoluteFill} />{children}</View>;
+  return (
+    <View style={[styles.glass, style]}>
+      <BlurView style={StyleSheet.absoluteFill} blurType="light" blurAmount={24} reducedTransparencyFallbackColor="rgba(255,255,255,.14)" />
+      <LinearGradient colors={['rgba(255,255,255,.26)','rgba(255,255,255,.07)']} style={StyleSheet.absoluteFill} />
+      {children}
+    </View>
+  );
 }
 
 export default function App() {
@@ -20,10 +48,41 @@ export default function App() {
   const [now, setNow] = useState(new Date());
   const [focus, setFocus] = useState(false);
   const [toast, setToast] = useState('');
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
+  const [apps, setApps] = useState(FALLBACK_APPS);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const loadApps = async () => {
+      try {
+        const nativeApps = await NativeModules.LauncherModule.getInstalledApps();
+        const filtered = nativeApps
+          .filter(app => app.packageName !== 'com.beatrice.liquidglasslauncher')
+          .slice(0, 16)
+          .map(app => ({...app, icon: iconFor(app.label)}));
+        if (filtered.length) setApps(filtered);
+      } catch (_) {}
+    };
+    loadApps();
+  }, []);
+
   const time = useMemo(() => now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), [now]);
   const date = useMemo(() => now.toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'}), [now]);
-  const openApp = name => { setToast(`${name} tapped`); setTimeout(() => setToast(''), 1400); };
+
+  const openApp = async app => {
+    if (app.packageName) {
+      try {
+        await NativeModules.LauncherModule.launchApp(app.packageName);
+        return;
+      } catch (_) {}
+    }
+    setToast(`${app.label} tapped`);
+    setTimeout(() => setToast(''), 1400);
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={[styles.screen, focus && styles.focus]}>
@@ -35,8 +94,15 @@ export default function App() {
           <View><Text style={styles.kicker}>{date}</Text><Text style={styles.bigTime}>{time}</Text><Text style={styles.location}>Cupertino  ·  22°  Sunny</Text></View>
           <Pressable onPress={() => setFocus(v => !v)} style={styles.focusButton}><Text style={styles.focusText}>{focus ? 'Focus on' : 'Focus'}</Text></Pressable>
         </Glass>
-        <View style={styles.grid}>{APPS.map(([name, icon]) => <Pressable key={name} onPress={() => openApp(name)} style={({pressed}) => [styles.app, pressed && styles.pressed]}><View style={styles.icon}><Text style={styles.emoji}>{icon}</Text></View><Text style={styles.appName}>{name}</Text></Pressable>)}</View>
-        <Glass style={styles.dock}>{DOCK.map(([name, icon]) => <Pressable key={name} onPress={() => openApp(name)} style={styles.dockIcon}><Text style={styles.emoji}>{icon}</Text></Pressable>)}</Glass>
+        <View style={styles.grid}>
+          {apps.map(app => (
+            <Pressable key={app.packageName || app.label} onPress={() => openApp(app)} style={({pressed}) => [styles.app, pressed && styles.pressed]}>
+              <View style={styles.icon}><Text style={styles.emoji}>{app.icon}</Text></View>
+              <Text numberOfLines={1} style={styles.appName}>{app.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Glass style={styles.dock}>{DOCK.map(app => <Pressable key={app.label} onPress={() => openApp(app)} style={styles.dockIcon}><Text style={styles.emoji}>{app.icon}</Text></Pressable>)}</Glass>
         {!!toast && <Glass style={styles.toast}><Text style={styles.toastText}>{toast}</Text></Glass>}
         <View style={styles.home}><View style={styles.homeBar}/></View>
       </View>
